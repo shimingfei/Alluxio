@@ -109,6 +109,11 @@ public class WorkerServiceHandler implements WorkerService.Iface {
   }
 
   @Override
+  public boolean promoteBlock(long userId, long blockId) throws TException {
+    return mWorkerStorage.promoteBlock(userId, blockId);
+  }
+
+  @Override
   public WorkerDirInfo requestSpace(long userId, long requestBytes) throws TachyonException,
       TException {
     StorageDir dir = mWorkerStorage.requestSpace(userId, requestBytes);
