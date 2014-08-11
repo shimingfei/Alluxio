@@ -15,16 +15,18 @@
 package tachyon;
 
 /**
- * functions used to process storage id of storage dirs.
+ * Functions used to process storage id. storage id is used to identify storage dir in hierarchy
+ * store.
  */
 public class StorageId {
+  static final long UNKNOWN = -1;
 
   public static int getStorageDirIndex(long storageId) {
     return (int) storageId & 0x00ff;
   }
 
   /**
-   * generate storage id
+   * Generate storage id
    * 
    * @param level
    *          storage level of the storage dir
@@ -39,7 +41,7 @@ public class StorageId {
   }
 
   /**
-   * get storage level alias value from the storage id
+   * Get storage level alias value from the storage id
    * 
    * @param storageId
    * @return value of storage level alias
@@ -56,5 +58,24 @@ public class StorageId {
    */
   public static int getStorageTierIndex(long storageId) {
     return ((int) storageId >> 24) & 0x0f;
+  }
+
+  /**
+   * Check whether storageId is unknown
+   * 
+   * @param storageId
+   * @return true if storageId is unknown, false otherwise.
+   */
+  public static boolean isUnknown(long storageId) {
+    return storageId == UNKNOWN;
+  }
+
+  /**
+   * Get unknown value of storageId
+   * 
+   * @return unknown value of storage id
+   */
+  public static long unknownValue() {
+    return UNKNOWN;
   }
 }

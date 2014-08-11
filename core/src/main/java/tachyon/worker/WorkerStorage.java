@@ -51,6 +51,7 @@ import tachyon.thrift.NetAddress;
 import tachyon.thrift.SuspectedFileSizeException;
 import tachyon.thrift.TachyonException;
 import tachyon.thrift.WorkerDirInfo;
+import tachyon.thrift.WorkerFileInfo;
 import tachyon.util.CommonUtils;
 import tachyon.worker.hierarchy.StorageDir;
 import tachyon.worker.hierarchy.StorageTier;
@@ -513,36 +514,25 @@ public class WorkerStorage {
   }
 
   /**
-   * Get path of the block's file
+   * Get block file's info, including file path and file size
    * 
    * @param blockId
    *          The id of the block
-   * @return The path of the block's file, if block file doesn't exist, return empty String
+   * @return The file info of the block
    * @throws FileDoesNotExistException
    */
-  public String getBlockFilePath(long blockId) throws FileDoesNotExistException {
+  public WorkerFileInfo getBlockFileInfo(long blockId, long storageId)
+      throws FileDoesNotExistException {
     StorageDir dir = null;
-    dir = getStorageDirByBlockId(blockId);
+    if (StorageId.isUnknown(storageId)) {
+      dir = getStorageDirByBlockId(blockId);
+    } else {
+      dir = getStorageDirByStorageId(storageId);
+    }
     if (dir != null) {
-      return dir.getBlockFilePath(blockId);
+      return new WorkerFileInfo(dir.getBlockFilePath(blockId), dir.getBlockSize(blockId));
     } else {
       throw new FileDoesNotExistException("block file not found! block id:" + blockId);
-    }
-  }
-
-  /**
-   * Get the file size of given block
-   * 
-   * @param blockId
-   *          The id of the block
-   * @return size of the block file
-   */
-  public long getBlockFileSize(long blockId) throws FileDoesNotExistException, TException {
-    StorageDir dir = getStorageDirByBlockId(blockId);
-    if (dir == null) {
-      throw new FileDoesNotExistException("block not found! block id:" + blockId);
-    } else {
-      return dir.getBlockSize(blockId);
     }
   }
 
@@ -635,6 +625,23 @@ public class WorkerStorage {
     } else {
       LOG.error("level index excceed boundary! levelIndex:" + tierIndex);
       return null;
+    }
+  }
+
+  /**
+   * Get storage id of the block
+   * 
+   * @param blockId
+   *          The id of the block
+   * @return storage id of the block
+   * @throws FileDoesNotExistException
+   */
+  public long getStorageIdByBlockId(long blockId) throws FileDoesNotExistException {
+    StorageDir dir = getStorageDirByBlockId(blockId);
+    if (dir == null) {
+      throw new FileDoesNotExistException("file not found! block id:" + blockId);
+    } else {
+      return dir.getStorageId();
     }
   }
 

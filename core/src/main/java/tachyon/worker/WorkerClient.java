@@ -34,6 +34,7 @@ import tachyon.thrift.FileDoesNotExistException;
 import tachyon.thrift.SuspectedFileSizeException;
 import tachyon.thrift.TachyonException;
 import tachyon.thrift.WorkerDirInfo;
+import tachyon.thrift.WorkerFileInfo;
 import tachyon.thrift.WorkerService;
 
 /**
@@ -161,23 +162,14 @@ public class WorkerClient {
    * 
    * @param blockId
    *          The id of the block
+   * @param storageId
+   *          The storage id of the block
    * @return The path of the block file
    * @throws TException
    */
-  public synchronized String getBlockFilePath(long blockId) throws TException {
-    return CLIENT.getBlockFilePath(blockId);
-  }
-
-  /**
-   * Get block file's size of the specified blockId.
-   * 
-   * @param blockId
-   *          The id of the block
-   * @return The size of the block file
-   * @throws TException
-   */
-  public synchronized long getBlockFileSize(long blockId) throws TException {
-    return CLIENT.getBlockFileSize(blockId);
+  public synchronized WorkerFileInfo getBlockFileInfo(long blockId, long storageId)
+      throws TException {
+    return CLIENT.getBlockFileInfo(blockId, storageId);
   }
 
   /**
@@ -206,7 +198,7 @@ public class WorkerClient {
   }
 
   /**
-   * Get the user temporary folder in the under file system of the specified user.
+   * Get the storage dir from storage id.
    * 
    * @param storageId
    *          The storage id of the dir
@@ -217,6 +209,20 @@ public class WorkerClient {
   public synchronized WorkerDirInfo getDirInfoByStorageId(long storageId) throws TException,
       TachyonException {
     return CLIENT.getDirInfoByStorageId(storageId);
+  }
+
+  /**
+   * Get the storage id of the block.
+   * 
+   * @param blockId
+   *          The id of the block
+   * @return The storage id of the block
+   * @throws TException
+   * @throws FileDoesNotExistException
+   */
+  public synchronized long getStorageIdByBlockId(long blockId) throws TException,
+      FileDoesNotExistException {
+    return CLIENT.getStorageIdByBlockId(blockId);
   }
 
   /**

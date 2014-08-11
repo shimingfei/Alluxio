@@ -30,6 +30,7 @@ import tachyon.UnderFileSystem;
 import tachyon.conf.UserConf;
 import tachyon.thrift.ClientBlockInfo;
 import tachyon.thrift.NetAddress;
+import tachyon.thrift.WorkerFileInfo;
 import tachyon.worker.DataServerMessage;
 
 /**
@@ -82,8 +83,12 @@ public class TachyonFile implements Comparable<TachyonFile> {
    */
   public String getBlockFilename(int blockIndex) throws IOException {
     ClientBlockInfo blockInfo = TFS.getClientBlockInfo(FID, blockIndex);
-
-    return TFS.getBlockFilePath(blockInfo.getBlockId());
+    WorkerFileInfo fileInfo = TFS.getBlockFileInfo(blockInfo.getBlockId());
+    if (fileInfo != null) {
+      return fileInfo.getFilePath();
+    } else {
+      return null;
+    }
   }
 
   /**
