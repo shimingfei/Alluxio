@@ -79,6 +79,11 @@ struct WorkerDirInfo {
   3: binary conf
 }
 
+struct WorkerFileInfo {
+  1: string filePath
+  2: i64 fileSize
+}
+
 exception BlockInfoException {
   1: string message
 }
@@ -302,10 +307,7 @@ service WorkerService {
     throws (1: FileDoesNotExistException eP, 2: SuspectedFileSizeException eS,
       3: BlockInfoException eB)
 
-  string getBlockFilePath(1: i64 blockId)
-    throws (1: FileDoesNotExistException eP)
-
-  i64 getBlockFileSize(1: i64 blockId)
+  WorkerFileInfo getBlockFileInfo(1: i64 blockId, 2: i64 storageId)
     throws (1: FileDoesNotExistException eP)
 
   string getDataFolder()
@@ -315,6 +317,9 @@ service WorkerService {
 
   WorkerDirInfo getDirInfoByStorageId(1: i64 storageId)
     throws (1: TachyonException eP)
+
+  i64 getStorageIdByBlockId(1: i64 blockId)
+    throws (1: FileDoesNotExistException eP)
 
   string getUserTempFolder(1: i64 userId)
 
