@@ -22,10 +22,12 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 
 import tachyon.Constants;
+import tachyon.StorageId;
 import tachyon.UnderFileSystem;
 import tachyon.conf.UserConf;
 import tachyon.thrift.ClientBlockInfo;
@@ -355,10 +357,17 @@ public class TachyonFile implements Comparable<TachyonFile> {
     try {
       List<NetAddress> blockLocations = blockInfo.getLocations();
       LOG.info("readByteBufferFromRemote() " + blockLocations);
+      Map<NetAddress, Long> storageIds = blockInfo.getStorageIds();
 
       for (NetAddress location : blockLocations) {
         String host = location.mHost;
-        int port = location.mPort;
+        int port = location.mSecondaryPort;
+        long storageId;
+        if (storageIds.containsKey(location)) {
+          storageId = storageIds.get(location);
+        } else {
+          storageId = StorageId.unknownValue();
+        }
 
         // The data is not in remote machine's memory if port == -1.
         if (port == -1) {
@@ -374,8 +383,8 @@ public class TachyonFile implements Comparable<TachyonFile> {
 
           try {
             buf =
-                retrieveByteBufferFromRemoteMachine(new InetSocketAddress(host, port + 1),
-                    blockInfo);
+                retrieveByteBufferFromRemoteMachine(new InetSocketAddress(host, port),
+                    blockInfo.getBlockId(), storageId);
             if (buf != null) {
               break;
             }
@@ -476,21 +485,21 @@ public class TachyonFile implements Comparable<TachyonFile> {
     return TFS.rename(FID, path);
   }
 
-  private ByteBuffer retrieveByteBufferFromRemoteMachine(InetSocketAddress address,
-      ClientBlockInfo blockInfo) throws IOException {
+  private ByteBuffer retrieveByteBufferFromRemoteMachine(InetSocketAddress address, long blockId,
+      long storageId) throws IOException {
     SocketChannel socketChannel = SocketChannel.open();
     socketChannel.connect(address);
 
     LOG.info("Connected to remote machine " + address + " sent");
-    long blockId = blockInfo.blockId;
-    DataServerMessage sendMsg = DataServerMessage.createBlockRequestMessage(blockId);
+    DataServerMessage sendMsg = DataServerMessage.createBlockRequestMessage(blockId, storageId);
     while (!sendMsg.finishSending()) {
       sendMsg.send(socketChannel);
     }
 
     LOG.info("Data " + blockId + " to remote machine " + address + " sent");
 
-    DataServerMessage recvMsg = DataServerMessage.createBlockResponseMessage(false, blockId, null);
+    DataServerMessage recvMsg =
+        DataServerMessage.createBlockResponseMessage(false, blockId, storageId, null);
     while (!recvMsg.isMessageReady()) {
       int numRead = recvMsg.recv(socketChannel);
       if (numRead == -1) {

@@ -16,8 +16,9 @@ package tachyon.worker;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.SocketChannel;
 import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -27,10 +28,10 @@ import tachyon.TestUtils;
 import tachyon.client.TachyonFS;
 import tachyon.client.WriteType;
 import tachyon.master.LocalTachyonCluster;
+import tachyon.thrift.ClientBlockInfo;
 import tachyon.thrift.FileAlreadyExistException;
 import tachyon.thrift.InvalidPathException;
 import tachyon.thrift.NetAddress;
-import tachyon.worker.DataServerMessage;
 
 /**
  * Unit tests for tachyon.worker.DataServer.
@@ -62,14 +63,18 @@ public class DataServerTest {
     int fileId = TestUtils.createByteFile(mTFS, "/testFile", WriteType.MUST_CACHE, 10);
     long blockId = mTFS.getBlockId(fileId, 0);
     DataServerMessage sendMsg;
-    sendMsg = DataServerMessage.createBlockRequestMessage(blockId, 0, 6);
-    NetAddress firstBlock = mTFS.getFileBlocks(fileId).get(0).getLocations().get(0);
+    ClientBlockInfo blockInfo = mTFS.getFileBlocks(fileId).get(0);
+    NetAddress firstBlock = blockInfo.getLocations().get(0);
+    long storageId = blockInfo.storageIds.get(firstBlock);
+    sendMsg = DataServerMessage.createBlockRequestMessage(blockId, storageId, 0, 6);
     SocketChannel socketChannel =
         SocketChannel.open(new InetSocketAddress(firstBlock.mHost, firstBlock.mSecondaryPort));
     while (!sendMsg.finishSending()) {
       sendMsg.send(socketChannel);
     }
-    DataServerMessage recvMsg = DataServerMessage.createBlockResponseMessage(false, blockId, 0, 6, ByteBuffer.allocate(0));
+    DataServerMessage recvMsg =
+        DataServerMessage.createBlockResponseMessage(false, blockId, storageId, 0, 6,
+            ByteBuffer.allocate(0));
     while (!recvMsg.isMessageReady()) {
       int numRead = recvMsg.recv(socketChannel);
       if (numRead == -1) {
@@ -85,14 +90,20 @@ public class DataServerTest {
       IOException {
     int fileId = TestUtils.createByteFile(mTFS, "/testFile", WriteType.MUST_CACHE, 10);
     long blockId = mTFS.getBlockId(fileId, 0);
-    DataServerMessage sendMsg = DataServerMessage.createBlockRequestMessage(blockId, 2, 6);
+    long storageId = mTFS.getStorageIdByBlockId(blockId);
+    DataServerMessage sendMsg =
+        DataServerMessage.createBlockRequestMessage(blockId, storageId, 2, 6);
     SocketChannel socketChannel =
-        SocketChannel.open(new InetSocketAddress(mTFS.getFileBlocks(fileId).get(0).getLocations()
-            .get(0).mHost, mTFS.getFileBlocks(fileId).get(0).getLocations().get(0).mSecondaryPort));
+        SocketChannel
+            .open(new InetSocketAddress(
+                mTFS.getFileBlocks(fileId).get(0).getLocations().get(0).mHost, mTFS
+                    .getFileBlocks(fileId).get(0).getLocations().get(0).mSecondaryPort));
     while (!sendMsg.finishSending()) {
       sendMsg.send(socketChannel);
     }
-    DataServerMessage recvMsg = DataServerMessage.createBlockResponseMessage(false, blockId, 2, 6, ByteBuffer.allocate(0));
+    DataServerMessage recvMsg =
+        DataServerMessage.createBlockResponseMessage(false, blockId, storageId, 2, 6,
+            ByteBuffer.allocate(0));
     while (!recvMsg.isMessageReady()) {
       int numRead = recvMsg.recv(socketChannel);
       if (numRead == -1) {
@@ -107,14 +118,18 @@ public class DataServerTest {
   public void readTest() throws InvalidPathException, FileAlreadyExistException, IOException {
     int fileId = TestUtils.createByteFile(mTFS, "/testFile", WriteType.MUST_CACHE, 10);
     long blockId = mTFS.getBlockId(fileId, 0);
-    DataServerMessage sendMsg = DataServerMessage.createBlockRequestMessage(blockId);
+    long storageId = mTFS.getStorageIdByBlockId(blockId);
+    DataServerMessage sendMsg = DataServerMessage.createBlockRequestMessage(blockId, storageId);
     SocketChannel socketChannel =
-        SocketChannel.open(new InetSocketAddress(mTFS.getFileBlocks(fileId).get(0).getLocations()
-            .get(0).mHost, mTFS.getFileBlocks(fileId).get(0).getLocations().get(0).mSecondaryPort));
+        SocketChannel
+            .open(new InetSocketAddress(
+                mTFS.getFileBlocks(fileId).get(0).getLocations().get(0).mHost, mTFS
+                    .getFileBlocks(fileId).get(0).getLocations().get(0).mSecondaryPort));
     while (!sendMsg.finishSending()) {
       sendMsg.send(socketChannel);
     }
-    DataServerMessage recvMsg = DataServerMessage.createBlockResponseMessage(false, blockId, null);
+    DataServerMessage recvMsg =
+        DataServerMessage.createBlockResponseMessage(false, blockId, storageId, null);
     while (!recvMsg.isMessageReady()) {
       int numRead = recvMsg.recv(socketChannel);
       if (numRead == -1) {

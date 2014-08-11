@@ -23,6 +23,7 @@ import org.apache.log4j.Logger;
 import com.google.common.base.Preconditions;
 
 import tachyon.Constants;
+import tachyon.StorageId;
 import tachyon.client.TachyonByteBuffer;
 
 /**
@@ -52,8 +53,8 @@ public class DataServerMessage {
    *          The id of the block
    * @return The created block request message
    */
-  public static DataServerMessage createBlockRequestMessage(long blockId) {
-    return createBlockRequestMessage(blockId, 0, -1);
+  public static DataServerMessage createBlockRequestMessage(long blockId, long storageId) {
+    return createBlockRequestMessage(blockId, storageId, 0, -1);
   }
 
   /**
@@ -70,11 +71,13 @@ public class DataServerMessage {
    *          the block's end.
    * @return The created block request message
    */
-  public static DataServerMessage createBlockRequestMessage(long blockId, long offset, long len) {
+  public static DataServerMessage createBlockRequestMessage(long blockId, long storageId,
+      long offset, long len) {
     DataServerMessage ret = new DataServerMessage(true, DATA_SERVER_REQUEST_MESSAGE);
 
     ret.mHeader = ByteBuffer.allocate(HEADER_LENGTH);
     ret.mBlockId = blockId;
+    ret.mStorageId = storageId;
     ret.mOffset = offset;
     ret.mLength = len;
     ret.generateHeader();
@@ -97,8 +100,8 @@ public class DataServerMessage {
    * @return The created block response message
    */
   public static DataServerMessage createBlockResponseMessage(boolean toSend, long blockId,
-      ByteBuffer blockData) {
-    return createBlockResponseMessage(toSend, blockId, 0, -1, blockData);
+      long storageId, ByteBuffer blockData) {
+    return createBlockResponseMessage(toSend, blockId, storageId, 0, -1, blockData);
   }
 
   /**
@@ -119,11 +122,12 @@ public class DataServerMessage {
    * @return The created block response message
    */
   public static DataServerMessage createBlockResponseMessage(boolean toSend, long blockId,
-      long offset, long len, ByteBuffer blockData) {
+      long storageId, long offset, long len, ByteBuffer blockData) {
     DataServerMessage ret = new DataServerMessage(toSend, DATA_SERVER_RESPONSE_MESSAGE);
 
     if (toSend) {
       ret.mBlockId = blockId;
+      ret.mStorageId = storageId;
 
       try {
         if (offset < 0) {
@@ -143,6 +147,7 @@ public class DataServerMessage {
       } catch (Exception e) {
         // TODO This is a trick for now. The data may have been removed before remote retrieving.
         ret.mBlockId = -ret.mBlockId;
+        ret.mStorageId = StorageId.unknownValue();
         ret.mLength = 0;
         ret.mHeader = ByteBuffer.allocate(HEADER_LENGTH);
         ret.mData = ByteBuffer.allocate(0);
@@ -164,8 +169,10 @@ public class DataServerMessage {
   private boolean mIsMessageReady;
   private ByteBuffer mHeader;
 
-  private static final int HEADER_LENGTH = 26;
+  private static final int HEADER_LENGTH = 34;
   private long mBlockId;
+
+  private long mStorageId;
 
   private long mOffset;
 
@@ -229,6 +236,7 @@ public class DataServerMessage {
     mHeader.clear();
     mHeader.putShort(MSG_TYPE);
     mHeader.putLong(mBlockId);
+    mHeader.putLong(mStorageId);
     mHeader.putLong(mOffset);
     mHeader.putLong(mLength);
     mHeader.flip();
@@ -289,6 +297,16 @@ public class DataServerMessage {
   }
 
   /**
+   * Get the storage id of the block. Make sure the message is ready before calling this method.
+   * 
+   * @return The id of the block
+   */
+  public long getStorageId() {
+    checkReady();
+    return mStorageId;
+  }
+
+  /**
    * @return true if the message is ready, false otherwise
    */
   public boolean isMessageReady() {
@@ -325,6 +343,7 @@ public class DataServerMessage {
         short msgType = mHeader.getShort();
         assert (MSG_TYPE == msgType);
         mBlockId = mHeader.getLong();
+        mStorageId = mHeader.getLong();
         mOffset = mHeader.getLong();
         mLength = mHeader.getLong();
         // TODO make this better to truncate the file.

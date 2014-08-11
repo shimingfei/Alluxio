@@ -32,6 +32,7 @@ import org.apache.log4j.Logger;
 import com.google.common.base.Throwables;
 
 import tachyon.Constants;
+import tachyon.StorageId;
 import tachyon.Users;
 import tachyon.conf.CommonConf;
 import tachyon.worker.hierarchy.StorageDir;
@@ -110,8 +111,14 @@ public class DataServer implements Runnable {
     mSelector.close();
   }
 
-  private ByteBuffer getBlockFileData(long blockId, long offset, long length) throws IOException {
-    StorageDir dir = mWorkerStorage.getStorageDirByBlockId(blockId);
+  private ByteBuffer getBlockFileData(long blockId, long storageId, long offset, long length)
+      throws IOException {
+    StorageDir dir;
+    if (StorageId.isUnknown(storageId)) {
+      dir = mWorkerStorage.getStorageDirByBlockId(blockId);
+    } else {
+      dir = mWorkerStorage.getStorageDirByStorageId(storageId);
+    }
     long blockSize = dir.getBlockSize(blockId);
     String error = null;
     if (offset > blockSize) {
@@ -206,10 +213,11 @@ public class DataServer implements Runnable {
       LOG.info("Get request for " + tMessage.getBlockId());
       int lockId = BLOCKS_LOCKER.lock(tMessage.getBlockId());
       ByteBuffer blockData =
-          getBlockFileData(tMessage.getBlockId(), tMessage.getOffset(), tMessage.getLength());
+          getBlockFileData(tMessage.getBlockId(), tMessage.getStorageId(), tMessage.getOffset(),
+              tMessage.getLength());
       DataServerMessage tResponseMessage =
           DataServerMessage.createBlockResponseMessage(true, tMessage.getBlockId(),
-              tMessage.getOffset(), blockData.limit(), blockData);
+              tMessage.getStorageId(), tMessage.getOffset(), blockData.limit(), blockData);
       tResponseMessage.setLockId(lockId);
       mSendingData.put(socketChannel, tResponseMessage);
     }
