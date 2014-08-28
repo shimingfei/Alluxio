@@ -35,8 +35,9 @@ import org.slf4j.LoggerFactory;
 public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, WorkerFileInfo._Fields>, java.io.Serializable, Cloneable, Comparable<WorkerFileInfo> {
   private static final org.apache.thrift.protocol.TStruct STRUCT_DESC = new org.apache.thrift.protocol.TStruct("WorkerFileInfo");
 
-  private static final org.apache.thrift.protocol.TField FILE_PATH_FIELD_DESC = new org.apache.thrift.protocol.TField("filePath", org.apache.thrift.protocol.TType.STRING, (short)1);
-  private static final org.apache.thrift.protocol.TField FILE_SIZE_FIELD_DESC = new org.apache.thrift.protocol.TField("fileSize", org.apache.thrift.protocol.TType.I64, (short)2);
+  private static final org.apache.thrift.protocol.TField STORAGE_ID_FIELD_DESC = new org.apache.thrift.protocol.TField("storageId", org.apache.thrift.protocol.TType.I64, (short)1);
+  private static final org.apache.thrift.protocol.TField FILE_PATH_FIELD_DESC = new org.apache.thrift.protocol.TField("filePath", org.apache.thrift.protocol.TType.STRING, (short)2);
+  private static final org.apache.thrift.protocol.TField FILE_SIZE_FIELD_DESC = new org.apache.thrift.protocol.TField("fileSize", org.apache.thrift.protocol.TType.I64, (short)3);
 
   private static final Map<Class<? extends IScheme>, SchemeFactory> schemes = new HashMap<Class<? extends IScheme>, SchemeFactory>();
   static {
@@ -44,13 +45,15 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
     schemes.put(TupleScheme.class, new WorkerFileInfoTupleSchemeFactory());
   }
 
+  public long storageId; // required
   public String filePath; // required
   public long fileSize; // required
 
   /** The set of fields this struct contains, along with convenience methods for finding and manipulating them. */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
-    FILE_PATH((short)1, "filePath"),
-    FILE_SIZE((short)2, "fileSize");
+    STORAGE_ID((short)1, "storageId"),
+    FILE_PATH((short)2, "filePath"),
+    FILE_SIZE((short)3, "fileSize");
 
     private static final Map<String, _Fields> byName = new HashMap<String, _Fields>();
 
@@ -65,9 +68,11 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
      */
     public static _Fields findByThriftId(int fieldId) {
       switch(fieldId) {
-        case 1: // FILE_PATH
+        case 1: // STORAGE_ID
+          return STORAGE_ID;
+        case 2: // FILE_PATH
           return FILE_PATH;
-        case 2: // FILE_SIZE
+        case 3: // FILE_SIZE
           return FILE_SIZE;
         default:
           return null;
@@ -109,11 +114,14 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
   }
 
   // isset id assignments
-  private static final int __FILESIZE_ISSET_ID = 0;
+  private static final int __STORAGEID_ISSET_ID = 0;
+  private static final int __FILESIZE_ISSET_ID = 1;
   private byte __isset_bitfield = 0;
   public static final Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> metaDataMap;
   static {
     Map<_Fields, org.apache.thrift.meta_data.FieldMetaData> tmpMap = new EnumMap<_Fields, org.apache.thrift.meta_data.FieldMetaData>(_Fields.class);
+    tmpMap.put(_Fields.STORAGE_ID, new org.apache.thrift.meta_data.FieldMetaData("storageId", org.apache.thrift.TFieldRequirementType.DEFAULT, 
+        new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.I64)));
     tmpMap.put(_Fields.FILE_PATH, new org.apache.thrift.meta_data.FieldMetaData("filePath", org.apache.thrift.TFieldRequirementType.DEFAULT, 
         new org.apache.thrift.meta_data.FieldValueMetaData(org.apache.thrift.protocol.TType.STRING)));
     tmpMap.put(_Fields.FILE_SIZE, new org.apache.thrift.meta_data.FieldMetaData("fileSize", org.apache.thrift.TFieldRequirementType.DEFAULT, 
@@ -126,10 +134,13 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
   }
 
   public WorkerFileInfo(
+    long storageId,
     String filePath,
     long fileSize)
   {
     this();
+    this.storageId = storageId;
+    setStorageIdIsSet(true);
     this.filePath = filePath;
     this.fileSize = fileSize;
     setFileSizeIsSet(true);
@@ -140,6 +151,7 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
    */
   public WorkerFileInfo(WorkerFileInfo other) {
     __isset_bitfield = other.__isset_bitfield;
+    this.storageId = other.storageId;
     if (other.isSetFilePath()) {
       this.filePath = other.filePath;
     }
@@ -152,9 +164,34 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
 
   @Override
   public void clear() {
+    setStorageIdIsSet(false);
+    this.storageId = 0;
     this.filePath = null;
     setFileSizeIsSet(false);
     this.fileSize = 0;
+  }
+
+  public long getStorageId() {
+    return this.storageId;
+  }
+
+  public WorkerFileInfo setStorageId(long storageId) {
+    this.storageId = storageId;
+    setStorageIdIsSet(true);
+    return this;
+  }
+
+  public void unsetStorageId() {
+    __isset_bitfield = EncodingUtils.clearBit(__isset_bitfield, __STORAGEID_ISSET_ID);
+  }
+
+  /** Returns true if field storageId is set (has been assigned a value) and false otherwise */
+  public boolean isSetStorageId() {
+    return EncodingUtils.testBit(__isset_bitfield, __STORAGEID_ISSET_ID);
+  }
+
+  public void setStorageIdIsSet(boolean value) {
+    __isset_bitfield = EncodingUtils.setBit(__isset_bitfield, __STORAGEID_ISSET_ID, value);
   }
 
   public String getFilePath() {
@@ -206,6 +243,14 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
 
   public void setFieldValue(_Fields field, Object value) {
     switch (field) {
+    case STORAGE_ID:
+      if (value == null) {
+        unsetStorageId();
+      } else {
+        setStorageId((Long)value);
+      }
+      break;
+
     case FILE_PATH:
       if (value == null) {
         unsetFilePath();
@@ -227,6 +272,9 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
 
   public Object getFieldValue(_Fields field) {
     switch (field) {
+    case STORAGE_ID:
+      return Long.valueOf(getStorageId());
+
     case FILE_PATH:
       return getFilePath();
 
@@ -244,6 +292,8 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
     }
 
     switch (field) {
+    case STORAGE_ID:
+      return isSetStorageId();
     case FILE_PATH:
       return isSetFilePath();
     case FILE_SIZE:
@@ -264,6 +314,15 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
   public boolean equals(WorkerFileInfo that) {
     if (that == null)
       return false;
+
+    boolean this_present_storageId = true;
+    boolean that_present_storageId = true;
+    if (this_present_storageId || that_present_storageId) {
+      if (!(this_present_storageId && that_present_storageId))
+        return false;
+      if (this.storageId != that.storageId)
+        return false;
+    }
 
     boolean this_present_filePath = true && this.isSetFilePath();
     boolean that_present_filePath = true && that.isSetFilePath();
@@ -299,6 +358,16 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
 
     int lastComparison = 0;
 
+    lastComparison = Boolean.valueOf(isSetStorageId()).compareTo(other.isSetStorageId());
+    if (lastComparison != 0) {
+      return lastComparison;
+    }
+    if (isSetStorageId()) {
+      lastComparison = org.apache.thrift.TBaseHelper.compareTo(this.storageId, other.storageId);
+      if (lastComparison != 0) {
+        return lastComparison;
+      }
+    }
     lastComparison = Boolean.valueOf(isSetFilePath()).compareTo(other.isSetFilePath());
     if (lastComparison != 0) {
       return lastComparison;
@@ -339,6 +408,10 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
     StringBuilder sb = new StringBuilder("WorkerFileInfo(");
     boolean first = true;
 
+    sb.append("storageId:");
+    sb.append(this.storageId);
+    first = false;
+    if (!first) sb.append(", ");
     sb.append("filePath:");
     if (this.filePath == null) {
       sb.append("null");
@@ -395,7 +468,15 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
           break;
         }
         switch (schemeField.id) {
-          case 1: // FILE_PATH
+          case 1: // STORAGE_ID
+            if (schemeField.type == org.apache.thrift.protocol.TType.I64) {
+              struct.storageId = iprot.readI64();
+              struct.setStorageIdIsSet(true);
+            } else { 
+              org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);
+            }
+            break;
+          case 2: // FILE_PATH
             if (schemeField.type == org.apache.thrift.protocol.TType.STRING) {
               struct.filePath = iprot.readString();
               struct.setFilePathIsSet(true);
@@ -403,7 +484,7 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
               org.apache.thrift.protocol.TProtocolUtil.skip(iprot, schemeField.type);
             }
             break;
-          case 2: // FILE_SIZE
+          case 3: // FILE_SIZE
             if (schemeField.type == org.apache.thrift.protocol.TType.I64) {
               struct.fileSize = iprot.readI64();
               struct.setFileSizeIsSet(true);
@@ -426,6 +507,9 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
       struct.validate();
 
       oprot.writeStructBegin(STRUCT_DESC);
+      oprot.writeFieldBegin(STORAGE_ID_FIELD_DESC);
+      oprot.writeI64(struct.storageId);
+      oprot.writeFieldEnd();
       if (struct.filePath != null) {
         oprot.writeFieldBegin(FILE_PATH_FIELD_DESC);
         oprot.writeString(struct.filePath);
@@ -452,13 +536,19 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
     public void write(org.apache.thrift.protocol.TProtocol prot, WorkerFileInfo struct) throws org.apache.thrift.TException {
       TTupleProtocol oprot = (TTupleProtocol) prot;
       BitSet optionals = new BitSet();
-      if (struct.isSetFilePath()) {
+      if (struct.isSetStorageId()) {
         optionals.set(0);
       }
-      if (struct.isSetFileSize()) {
+      if (struct.isSetFilePath()) {
         optionals.set(1);
       }
-      oprot.writeBitSet(optionals, 2);
+      if (struct.isSetFileSize()) {
+        optionals.set(2);
+      }
+      oprot.writeBitSet(optionals, 3);
+      if (struct.isSetStorageId()) {
+        oprot.writeI64(struct.storageId);
+      }
       if (struct.isSetFilePath()) {
         oprot.writeString(struct.filePath);
       }
@@ -470,12 +560,16 @@ public class WorkerFileInfo implements org.apache.thrift.TBase<WorkerFileInfo, W
     @Override
     public void read(org.apache.thrift.protocol.TProtocol prot, WorkerFileInfo struct) throws org.apache.thrift.TException {
       TTupleProtocol iprot = (TTupleProtocol) prot;
-      BitSet incoming = iprot.readBitSet(2);
+      BitSet incoming = iprot.readBitSet(3);
       if (incoming.get(0)) {
+        struct.storageId = iprot.readI64();
+        struct.setStorageIdIsSet(true);
+      }
+      if (incoming.get(1)) {
         struct.filePath = iprot.readString();
         struct.setFilePathIsSet(true);
       }
-      if (incoming.get(1)) {
+      if (incoming.get(2)) {
         struct.fileSize = iprot.readI64();
         struct.setFileSizeIsSet(true);
       }

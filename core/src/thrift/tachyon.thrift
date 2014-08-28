@@ -80,8 +80,9 @@ struct WorkerDirInfo {
 }
 
 struct WorkerFileInfo {
-  1: string filePath
-  2: i64 fileSize
+  1: i64 storageId
+  2: string filePath
+  3: i64 fileSize
 }
 
 exception BlockInfoException {
@@ -312,14 +313,7 @@ service WorkerService {
 
   string getDataFolder()
 
-  WorkerDirInfo getDirInfoByBlockId(1: i64 blockid)
-    throws (1: TachyonException eP)
-
-  WorkerDirInfo getDirInfoByStorageId(1: i64 storageId)
-    throws (1: TachyonException eP)
-
-  i64 getStorageIdByBlockId(1: i64 blockId)
-    throws (1: FileDoesNotExistException eP)
+  map<i64, WorkerDirInfo> getWorkerDirInfos()
 
   string getUserTempFolder(1: i64 userId)
 
@@ -332,8 +326,10 @@ service WorkerService {
 
   void returnSpace(1: i64 storageId, 2: i64 userId, 3: i64 returnedBytes)
 
-  WorkerDirInfo requestSpace(1: i64 userId, 2: i64 requestBytes)   // Should change this to return i64, means how much space to grant.
+  i64 requestSpace(1: i64 userId, 2: i64 requestBytes)   // return storageId of assigned storage dir
     throws (1: TachyonException eP)
+
+  bool requestSpaceInplace(1: i64 storageId, 2: i64 userId, 3: i64 requestBytes)
 
   void unlockBlock(1: i64 blockId, 2: i64 userId) // unlock the file
 
