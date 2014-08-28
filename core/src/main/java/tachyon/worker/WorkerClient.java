@@ -16,6 +16,7 @@ package tachyon.worker;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
@@ -184,48 +185,6 @@ public class WorkerClient {
   }
 
   /**
-   * Get dir info that contains given block id
-   * 
-   * @param blockId
-   *          The id of the block
-   * @return info of the dir containing the block's file
-   * @throws TException
-   * @throws TachyonException
-   */
-  public synchronized WorkerDirInfo getDirInfoByBlockId(long blockId) throws TException,
-      TachyonException {
-    return CLIENT.getDirInfoByBlockId(blockId);
-  }
-
-  /**
-   * Get the storage dir from storage id.
-   * 
-   * @param storageId
-   *          The storage id of the dir
-   * @return The info of the dir with the storageId
-   * @throws TException
-   * @throws TachyonException
-   */
-  public synchronized WorkerDirInfo getDirInfoByStorageId(long storageId) throws TException,
-      TachyonException {
-    return CLIENT.getDirInfoByStorageId(storageId);
-  }
-
-  /**
-   * Get the storage id of the block.
-   * 
-   * @param blockId
-   *          The id of the block
-   * @return The storage id of the block
-   * @throws TException
-   * @throws FileDoesNotExistException
-   */
-  public synchronized long getStorageIdByBlockId(long blockId) throws TException,
-      FileDoesNotExistException {
-    return CLIENT.getStorageIdByBlockId(blockId);
-  }
-
-  /**
    * Get the local user temporary folder of the specified user.
    * 
    * @param userId
@@ -247,6 +206,16 @@ public class WorkerClient {
    */
   public synchronized String getUserUnderfsTempFolder(long userId) throws TException {
     return CLIENT.getUserUnderfsTempFolder(userId);
+  }
+
+  /**
+   * Get the storage dirs on the worker.
+   * 
+   * @return The info of storage dirs
+   * @throws TException
+   */
+  public synchronized Map<Long, WorkerDirInfo> getWorkerDirInfos() throws TException {
+    return CLIENT.getWorkerDirInfos();
   }
 
   /**
@@ -314,7 +283,7 @@ public class WorkerClient {
    * @return the Dir Info of the space allocated
    * @throws TException
    */
-  public synchronized WorkerDirInfo requestSpace(long userId, long requestBytes) throws TException {
+  public synchronized long requestSpace(long userId, long requestBytes) throws TException {
     return CLIENT.requestSpace(userId, requestBytes);
   }
 

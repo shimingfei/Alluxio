@@ -18,25 +18,32 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
+import tachyon.worker.hierarchy.BlockInfo;
+import tachyon.worker.hierarchy.StorageDir;
+
 /**
- * interface used to determine which blocks will be evicted to get enough free space requested.
+ * Interface used to determine which blocks will be evicted to get enough free space requested. For
+ * efficiency considerations, resources will be locked only when they are accessed during candidate
+ * selection. when actually evict blocks, some blocks selected may be not allowed to evict, because
+ * pin file / locked blocks information may be updated after candidate selection. it may result in
+ * having to try more than one time to get enough space.
  */
 public interface EvictStrategy {
 
   /**
-   * get storage dir for request size and also get blocks to be evicted
+   * Get storage dir for request size and also get blocks to be evicted
    * 
    * @param blockEvictionInfoList
    *          blocks to be evicted
+   * @param storageDirs
+   *          storage dirs that the space is allocated in
    * @param pinList
    *          list of pinned file
-   * @param lastTier
-   *          whether current storage tier is the last tier
    * @param requestSize
    *          size to request
    * @return index of the storage dir allocated, toEvictedBlocks also returned as output
    * @throws IOException
    */
-  int getDirCandidate(List<BlockEvictionInfo> blockEvictionInfoList, Set<Integer> pinList,
-      boolean lastTier, long requestSize) throws IOException;
+  StorageDir getDirCandidate(List<BlockInfo> blockEvictionInfoList, StorageDir[] storageDirs,
+      Set<Integer> pinList, long requestSize);
 }

@@ -14,56 +14,42 @@
  */
 package tachyon.client;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import org.apache.log4j.Logger;
 
 import tachyon.Constants;
 
 /**
- * it is the base class for handling block files. block handlers for different under
- * file system can be implemented by extending this class. it also create specific
- * BlockHandler for certain block file by checking the block file's path
+ * Base class for handling block files. Block handlers for different under file systems can be
+ * implemented by extending this class. It is not thread safe, the caller must guarantee thread
+ * safe. This class is internal and subject to changes.
  */
-public abstract class BlockHandler {
+public abstract class BlockHandler implements Closeable {
+
   /**
    * Create a block handler according to path scheme
    * 
    * @param path
    *          block file path
-   * @param blockid
-   *          id of the block
-   * @param ufsConf
-   *          configuration of under file system
    * @return block handler of the block file
    * @throws IOException
    * @throws IllegalArgumentException
    */
-  public static BlockHandler get(String path, Object ufsConf) throws IOException,
-      IllegalArgumentException {
-    if (path.startsWith("hdfs://") || path.startsWith("s3://") || path.startsWith("s3n://")) {
-      return new BlockHandlerHdfs(path, ufsConf);
-    } else if (path.startsWith(Constants.PATH_SEPARATOR) || path.startsWith("file://")) {
-      return new BlockHandlerLocalFS(path);
+  public static BlockHandler get(String path) throws IOException, IllegalArgumentException {
+    if (path.startsWith(Constants.PATH_SEPARATOR) || path.startsWith("file://")) {
+      return new BlockHandlerLocal(path);
     }
-    throw new IllegalArgumentException("Unknown path scheme: " + path);
-  }
-
-  protected final Logger LOG = Logger.getLogger(Constants.LOGGER_TYPE);
-  protected String mPath;
-
-  public BlockHandler(String path) {
-    mPath = path;
+    throw new IllegalArgumentException("Unsupported block file path: " + path);
   }
 
   /**
-   * Write data into block file
+   * Append data to block file from byte array
    * 
+   * @param blockOffset
+   *          starting position of the block file
    * @param buf
    *          buffer that data is stored in
-   * @param inFileBytes
-   *          starting position of the file
    * @param offset
    *          offset of the buf
    * @param length
@@ -71,28 +57,39 @@ public abstract class BlockHandler {
    * @return size of data that is written
    * @throws IOException
    */
-  public abstract int appendCurrentBuffer(byte[] buf, long inFileBytes, int offset, int length)
-      throws IOException;
+  public int append(long blockOffset, byte[] buf, int offset, int length) throws IOException {
+    return append(blockOffset, ByteBuffer.wrap(buf, offset, length));
+  }
 
   /**
-   * close block file
+   * Append data to block file from ByteBuffer
+   * 
+   * @param blockOffset
+   *          starting position of the block file
+   * @param srcBuf
+   *          ByteBuffer that data is stored in
+   * @return size of data that is written
+   * @throws IOException
    */
-  public abstract void close() throws IOException;
+  public abstract int append(long blockOffset, ByteBuffer srcBuf) throws IOException;
 
   /**
-   * delete block file
+   * Delete block file
+   * 
+   * @return true if success, otherwise false
+   * @throws IOException
    */
-  public abstract void delete();
+  public abstract boolean delete() throws IOException;
 
   /**
    * Read data from block file
    * 
-   * @param offset
-   *          offset from starting of the file
+   * @param blockOffset
+   *          offset from starting of the block file
    * @param length
-   *          length of data to read
-   * @return byte buffer storing data that is read
+   *          length of data to read, -1 represents reading the rest of the block file
+   * @return ByteBuffer storing data that is read
    * @throws IOException
    */
-  public abstract ByteBuffer readByteBuffer(int offset, int length) throws IOException;
+  public abstract ByteBuffer read(long blockOffset, int length) throws IOException;
 }

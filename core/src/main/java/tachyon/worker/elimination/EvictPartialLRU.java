@@ -14,67 +14,77 @@
  */
 package tachyon.worker.elimination;
 
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import tachyon.Pair;
+import tachyon.worker.hierarchy.BlockInfo;
 import tachyon.worker.hierarchy.StorageDir;
 
 /**
- * it is used to evict blocks in certain storage dir by LRU strategy.
+ * It is used to evict blocks in certain storage dir by LRU strategy.
  */
 public class EvictPartialLRU extends EvictLRUBase {
 
-  public EvictPartialLRU(StorageDir[] storageDirs) {
-    super(storageDirs);
+  public EvictPartialLRU(boolean lastTier) {
+    super(lastTier);
   }
 
   @Override
-  public int getDirCandidate(List<BlockEvictionInfo> blockEvictionInfoList, Set<Integer> pinList,
-      boolean isLastTier, long requestSize) throws IOException {
-    Set<Integer> ignoredDirs = new HashSet<Integer>();
-    int dirIndex = getDirWithMaxFreeSpace(requestSize, ignoredDirs);
-    while (dirIndex != -1) {
+  public StorageDir getDirCandidate(List<BlockInfo> blockEvictionInfoList,
+      StorageDir[] storageDirs, Set<Integer> pinList, long requestSize) {
+    Set<StorageDir> ignoredDirs = new HashSet<StorageDir>();
+    StorageDir dirSelected = getDirWithMaxFreeSpace(requestSize, storageDirs, ignoredDirs);
+    while (dirSelected != null) {
       Set<Long> blockIdSet = new HashSet<Long>();
       long sizeToEvict = 0;
-      while (sizeToEvict + mStorageDirs[dirIndex].getAvailable() < requestSize) {
-        Pair<Long, Long> oldestAccess =
-            getLRUBlock(mStorageDirs[dirIndex], blockIdSet, pinList, isLastTier);
+      while (sizeToEvict + dirSelected.getAvailable() < requestSize) {
+        Pair<Long, Long> oldestAccess = getLRUBlock(dirSelected, blockIdSet, pinList);
         if (oldestAccess.getFirst() != -1) {
-          long blockSize = mStorageDirs[dirIndex].getBlockSizes().get(oldestAccess.getFirst());
+          long blockSize = dirSelected.getBlockSize(oldestAccess.getFirst());
           sizeToEvict += blockSize;
-          blockEvictionInfoList.add(new BlockEvictionInfo(dirIndex, oldestAccess.getFirst(),
-              blockSize));
+          blockEvictionInfoList
+              .add(new BlockInfo(dirSelected, oldestAccess.getFirst(), blockSize));
           blockIdSet.add(oldestAccess.getFirst());
         } else {
           break;
         }
       }
-      if (sizeToEvict + mStorageDirs[dirIndex].getAvailable() < requestSize) {
-        ignoredDirs.add(dirIndex);
+      if (sizeToEvict + dirSelected.getAvailable() < requestSize) {
+        ignoredDirs.add(dirSelected);
         blockEvictionInfoList.clear();
         blockIdSet.clear();
-        dirIndex = getDirWithMaxFreeSpace(requestSize, ignoredDirs);
+        dirSelected = getDirWithMaxFreeSpace(requestSize, storageDirs, ignoredDirs);
       } else {
-        return dirIndex;
+        return dirSelected;
       }
     }
-    throw new IOException("no suitable dir can be found!");
+    return null;
   }
 
-  public int getDirWithMaxFreeSpace(long requestSize, Set<Integer> ignoredList) {
-    int dirSelected = -1;
+  /**
+   * Get the storage dir which has max free space
+   * 
+   * @param requestSize
+   *          the space size to request
+   * @param storageDirs
+   *          storage dirs that the space is allocated in
+   * @param ignoredList
+   *          storage dirs that has ignored
+   * @return the storage dir selected
+   */
+  public StorageDir getDirWithMaxFreeSpace(long requestSize, StorageDir[] storageDirs,
+      Set<StorageDir> ignoredList) {
+    StorageDir dirSelected = null;
     long maxAvailableSize = -1;
-    for (int index = 0; index < mStorageDirs.length; index ++) {
-      if (ignoredList.contains(index)) {
+    for (StorageDir dir : storageDirs) {
+      if (ignoredList.contains(dir)) {
         continue;
       }
-      if (mStorageDirs[index].getCapacity() >= requestSize
-          && mStorageDirs[index].getAvailable() > maxAvailableSize) {
-        dirSelected = index;
-        maxAvailableSize = mStorageDirs[index].getAvailable();
+      if (dir.getCapacity() >= requestSize && dir.getAvailable() > maxAvailableSize) {
+        dirSelected = dir;
+        maxAvailableSize = dir.getAvailable();
       }
     }
     return dirSelected;

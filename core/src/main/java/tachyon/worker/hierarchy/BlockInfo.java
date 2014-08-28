@@ -12,46 +12,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package tachyon.worker.elimination;
+package tachyon.worker.hierarchy;
+
 
 /**
- * it is used for recording block information that will be used in block eviction.
+ * It is used for recording block information that will be used in block eviction.
  */
-public class BlockEvictionInfo {
-  int mDirIndex;
-  long mBlockId;
-  long mBlockSize;
+public class BlockInfo {
+  private final StorageDir DIR;
+  private final long BLOCK_ID;
+  private final long BLOCK_SIZE;
 
-  public BlockEvictionInfo(int dirIndex, long blockId, long blockSize) {
-    mDirIndex = dirIndex;
-    mBlockId = blockId;
-    mBlockSize = blockSize;
+  public BlockInfo(StorageDir storageDir, long blockId, long blockSize) {
+    DIR = storageDir;
+    BLOCK_ID = blockId;
+    BLOCK_SIZE = blockSize;
   }
 
   /**
-   * get id of the block
+   * Get id of the block
    * 
    * @return id of the block
    */
   public long getBlockId() {
-    return mBlockId;
+    return BLOCK_ID;
   }
 
   /**
-   * get size of the block
+   * Get size of the block
    * 
    * @return size of the block
    */
   public long getBlockSize() {
-    return mBlockSize;
+    return BLOCK_SIZE;
   }
 
   /**
-   * get index of the storage dir containing the block
+   * Get the storage dir which contains the block
    * 
    * @return index of the storage dir
    */
-  public int getDirIndex() {
-    return mDirIndex;
+  public StorageDir getStorageDir() {
+    return DIR;
   }
 }

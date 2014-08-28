@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 import org.apache.log4j.Logger;
 
 import tachyon.Constants;
-import tachyon.thrift.WorkerDirInfo;
+import tachyon.StorageId;
 import tachyon.util.CommonUtils;
 
 /**
@@ -37,7 +37,6 @@ public class BlockOutStream extends OutStream {
 
   private long mInFileBytes = 0;
   private long mWrittenBytes = 0;
-  private WorkerDirInfo mDirInfo;
   private String mLocalFilePath = null;
 
   private ByteBuffer mBuffer = ByteBuffer.allocate(0);
@@ -45,6 +44,7 @@ public class BlockOutStream extends OutStream {
   private boolean mClosed = false;
   private boolean mCancel = false;
   private BlockHandler mBlockHandler = null;
+  private long mStorageId;
 
   /**
    * @param file
@@ -81,8 +81,16 @@ public class BlockOutStream extends OutStream {
 
   private synchronized void appendCurrentBuffer(byte[] buf, int offset, int length)
       throws IOException {
-    mDirInfo = TFS.requestSpace(length);
-    if (mDirInfo == null) {
+    boolean reqRet = false;
+    if (StorageId.isUnknown(mStorageId)) {
+      mStorageId = TFS.requestSpace(length);
+      if (!StorageId.isUnknown(mStorageId)) {
+        reqRet = true;
+      }
+    } else {
+      reqRet = TFS.requestSpace(mStorageId, length);
+    }
+    if (!reqRet) {
       mCanWrite = false;
 
       String msg =
@@ -94,11 +102,13 @@ public class BlockOutStream extends OutStream {
 
       throw new IOException(msg);
     }
-    String userTempFolder = createUserTempFolder(mDirInfo.getStorageId());
-    mLocalFilePath = CommonUtils.concat(userTempFolder, BLOCK_ID);
     try {
-      mBlockHandler = BlockHandler.get(mLocalFilePath, mDirInfo.getConf());
-      mBlockHandler.appendCurrentBuffer(buf, mInFileBytes, offset, length);
+      if (mBlockHandler == null) {
+        String userTempFolder = createUserTempFolder(mStorageId);
+        mLocalFilePath = CommonUtils.concat(userTempFolder, BLOCK_ID);
+        mBlockHandler = BlockHandler.get(mLocalFilePath);
+      }
+      mBlockHandler.append(mInFileBytes, buf, offset, length);
       mInFileBytes += length;
     } catch (IllegalArgumentException e) {
       throw new IOException(e.getMessage());
@@ -125,8 +135,8 @@ public class BlockOutStream extends OutStream {
         appendCurrentBuffer(mBuffer.array(), 0, mBuffer.position());
       }
       if (mCancel) {
-        if (mDirInfo != null) {
-          TFS.releaseSpace(mDirInfo.getStorageId(), mWrittenBytes - mBuffer.position());
+        if (StorageId.isUnknown(mStorageId)) {
+          TFS.releaseSpace(mStorageId, mWrittenBytes - mBuffer.position());
         }
         if (mBlockHandler != null) {
           mBlockHandler.delete();
@@ -135,7 +145,7 @@ public class BlockOutStream extends OutStream {
         LOG.info("Canceled output of block " + BLOCK_ID + ", deleted local file " + mLocalFilePath);
       } else {
         mBlockHandler.close();
-        TFS.cacheBlock(mDirInfo.getStorageId(), BLOCK_ID);
+        TFS.cacheBlock(mStorageId, BLOCK_ID);
       }
     }
     mClosed = true;

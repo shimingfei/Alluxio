@@ -930,48 +930,6 @@ public class TachyonFS {
   }
 
   /**
-   * Get the worker dir info that contains the blockId
-   * 
-   * @param blockId
-   *          the id of the block
-   * @return the worker dir info containing the block id, null if not found
-   * @throws IOException
-   */
-  public synchronized WorkerDirInfo getDirInfoByBlockId(long blockId) throws IOException {
-    connect();
-    WorkerDirInfo dirInfo = null;
-    try {
-      dirInfo = mWorkerClient.getDirInfoByBlockId(blockId);
-    } catch (TachyonException e) {
-      return null;
-    } catch (TException e) {
-      throw new IOException(e);
-    }
-    return dirInfo;
-  }
-
-  /**
-   * Get the worker dir info by the dir's storageId
-   * 
-   * @param storageId
-   *          the storage id of the dir
-   * @return the worker dir info of the storageId, null if not found
-   * @throws IOException
-   */
-  public synchronized WorkerDirInfo getDirInfoByStorageId(long storageId) throws IOException {
-    connect();
-    WorkerDirInfo dirInfo = null;
-    try {
-      dirInfo = mWorkerClient.getDirInfoByStorageId(storageId);
-    } catch (TachyonException e) {
-      return null;
-    } catch (TException e) {
-      throw new IOException(e);
-    }
-    return dirInfo;
-  }
-
-  /**
    * get UnderFileSystem of a specified DIR
    * 
    * @param storageId
@@ -983,29 +941,7 @@ public class TachyonFS {
     if (mIdToUFS.containsKey(storageId)) {
       return mIdToUFS.get(storageId);
     } else {
-      WorkerDirInfo dirInfo;
-      if (mIdToDirInfo.containsKey(storageId)) {
-        dirInfo = mIdToDirInfo.get(storageId);
-      } else {
-        dirInfo = getDirInfoByStorageId(storageId);
-        if (dirInfo == null) {
-          LOG.error("not found storage dir! storageId:" + storageId);
-          return null;
-        } else {
-          mIdToDirInfo.put(storageId, dirInfo);
-        }
-      }
-      UnderFileSystem ufs;
-      try {
-        ufs =
-            UnderFileSystem.get(dirInfo.getDirPath(),
-                CommonUtils.byteArrayToObject(dirInfo.getConf()));
-      } catch (ClassNotFoundException e) {
-        LOG.error(e.getMessage());
-        return null;
-      }
-      mIdToUFS.put(storageId, ufs);
-      return ufs;
+      return null;
     }
   }
 
@@ -1336,6 +1272,18 @@ public class TachyonFS {
     return mLocalDataFolder;
   }
 
+  public synchronized long getSpaceLocally(long requestSpaceBytes) throws IOException {
+    long storageId = StorageId.unknownValue();
+    for (Entry<Long, Long> entry : mAvailableSpaceBytes.entrySet()) {
+      if (entry.getValue() >= requestSpaceBytes) {
+        storageId = entry.getKey();
+        mAvailableSpaceBytes.put(storageId, entry.getValue() - requestSpaceBytes);
+        break;
+      }
+    }
+    return storageId;
+  }
+
   /**
    * Get storage id of the block
    * 
@@ -1409,6 +1357,24 @@ public class TachyonFS {
   public synchronized boolean hasLocalWorker() throws IOException {
     connect();
     return (mIsWorkerLocal && mWorkerClient != null);
+  }
+
+  private void initalizeDirUFS() throws IOException {
+    WorkerDirInfo dirInfo;
+    for (Entry<Long, WorkerDirInfo> idToDir : mIdToDirInfo.entrySet()) {
+      long storageId = idToDir.getKey();
+      dirInfo = idToDir.getValue();
+      UnderFileSystem ufs;
+      try {
+        ufs =
+            UnderFileSystem.get(dirInfo.getDirPath(),
+                CommonUtils.byteArrayToObject(dirInfo.getConf()));
+      } catch (ClassNotFoundException e) {
+        throw new IOException(e.getMessage());
+      }
+      mIdToUFS.put(storageId, ufs);
+    }
+    return;
   }
 
   /**
@@ -1697,8 +1663,8 @@ public class TachyonFS {
         if (len == -1) {
           len = fileLength - offset;
         }
-        BlockHandler handler = BlockHandler.get(filePath, ufsConf);
-        ByteBuffer buf = handler.readByteBuffer((int) offset, (int) len);
+        BlockHandler handler = BlockHandler.get(filePath);
+        ByteBuffer buf = handler.read((int) offset, (int) len);
         handler.close();
         accessLocalBlock(blockId);
         return new TachyonByteBuffer(this, buf, blockId, blockLockId);
@@ -1855,63 +1821,36 @@ public class TachyonFS {
    * @return true if succeed, false otherwise
    * @throws IOException
    */
-  public synchronized WorkerDirInfo requestSpace(long requestSpaceBytes) throws IOException {
+  public synchronized long requestSpace(long requestSpaceBytes) throws IOException {
     if (!hasLocalWorker()) {
-      return null;
+      return StorageId.unknownValue();
     }
-    WorkerDirInfo dirInfo = requestSpaceInplace(requestSpaceBytes);
-    if (dirInfo != null) {
-      return dirInfo;
+    long storageId = getSpaceLocally(requestSpaceBytes);
+    if (storageId != StorageId.unknownValue()) {
+      return storageId;
     } else {
       long toRequestSpaceBytes = Math.max(requestSpaceBytes, USER_QUOTA_UNIT_BYTES);
       try {
-        dirInfo = mWorkerClient.requestSpace(mUserId, toRequestSpaceBytes);
+        storageId = mWorkerClient.requestSpace(mUserId, toRequestSpaceBytes);
       } catch (TachyonException e) {
         LOG.error(e.getMessage());
-        return null;
+        return storageId;
       } catch (TException e) {
         LOG.error(e.getMessage());
         mWorkerClient = null;
-        return null;
-      }
-      if (!mIdToDirInfo.containsKey(dirInfo.getStorageId())) {
-        mIdToDirInfo.put(dirInfo.getStorageId(), dirInfo);
+        return storageId;
       }
       long availableSpace = toRequestSpaceBytes;
-      if (mAvailableSpaceBytes.containsKey(dirInfo.getStorageId())) {
-        availableSpace = toRequestSpaceBytes + mAvailableSpaceBytes.get(dirInfo.getStorageId());
+      if (mAvailableSpaceBytes.containsKey(storageId)) {
+        availableSpace = toRequestSpaceBytes + mAvailableSpaceBytes.get(storageId);
       }
       if (availableSpace >= requestSpaceBytes) {
-        mAvailableSpaceBytes.put(dirInfo.getStorageId(), availableSpace - requestSpaceBytes);
-        return dirInfo;
+        mAvailableSpaceBytes.put(storageId, availableSpace - requestSpaceBytes);
+        return storageId;
       } else {
-        return null;
+        return StorageId.unknownValue();
       }
     }
-  }
-
-  public synchronized WorkerDirInfo requestSpaceInplace(long requestSpaceBytes) throws IOException {
-    WorkerDirInfo dirInfo = null;
-    for (Entry<Long, Long> entry : mAvailableSpaceBytes.entrySet()) {
-      if (entry.getValue() >= requestSpaceBytes) {
-        long storageId = entry.getKey();
-        if (mIdToDirInfo.containsKey(storageId)) {
-          dirInfo = mIdToDirInfo.get(storageId);
-        } else {
-          dirInfo = getDirInfoByStorageId(storageId);
-          if (dirInfo == null) {
-            LOG.error("not found storage dir! storageId:" + storageId);
-            mAvailableSpaceBytes.remove(storageId);
-            continue;
-          } else {
-            mIdToDirInfo.put(storageId, dirInfo);
-          }
-        }
-        mAvailableSpaceBytes.put(storageId, entry.getValue() - requestSpaceBytes);
-        break;
-      }
-    }
-    return dirInfo;
   }
 
   /**

@@ -19,41 +19,41 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import com.google.common.collect.HashMultimap;
+
 import tachyon.Pair;
 import tachyon.master.BlockInfo;
 import tachyon.worker.hierarchy.StorageDir;
 
 /**
- * it is the base class which is used to evict blocks by LRU strategy.
+ * It is the base class which is used to evict blocks by LRU strategy.
  */
 public abstract class EvictLRUBase implements EvictStrategy {
 
-  StorageDir[] mStorageDirs;
+  private final boolean LAST_TIER;
 
-  EvictLRUBase(StorageDir[] storageDirs) {
-    mStorageDirs = storageDirs;
+  EvictLRUBase(boolean lastTier) {
+    LAST_TIER = lastTier;
   }
 
   /**
-   * if current block can be evicted
+   * Check if current block can be evicted
    * 
    * @param blockId
    *          id of the block
    * @param pinList
    *          list of pinned files
-   * @param isLastTier
-   *          whether current storage tier is the last tier
    * @return true if can be evicted, false otherwise
    */
-  boolean blockEvictable(long blockId, Set<Integer> pinList, boolean isLastTier) {
-    if (isLastTier && pinList.contains(BlockInfo.computeInodeId(blockId))) {
+  boolean blockEvictable(long blockId, Set<Integer> pinList) {
+    if (LAST_TIER && pinList.contains(BlockInfo.computeInodeId(blockId))) {
       return false;
     }
     return true;
   }
 
   /**
-   * get oldest block access information
+   * Get oldest block access information
    * 
    * @param curDir
    *          current storage dir
@@ -61,25 +61,27 @@ public abstract class EvictLRUBase implements EvictStrategy {
    *          block ids that already selected to be evicted
    * @param pinList
    *          list of pinned files
-   * @param isLastTier
-   *          whether current storage tier is the last tier
    * @return oldest access information of current storage dir
    */
   Pair<Long, Long> getLRUBlock(StorageDir curDir, Collection<Long> toEvictBlockIds,
-      Set<Integer> pinList, boolean isLastTier) {
+      Set<Integer> pinList) {
     long blockId = -1;
     long oldestTime = Long.MAX_VALUE;
     Map<Long, Long> accessTimes = curDir.getLastBlockAccessTime();
-    Map<Long, Set<Long>> lockedBlocks = curDir.getUsersPerLockedBlock();
-    // no synchronized here
-    for (Entry<Long, Long> accessTime : accessTimes.entrySet()) {
-      if (toEvictBlockIds.contains(accessTime.getKey())) {
-        continue;
-      }
-      if (accessTime.getValue() < oldestTime && !lockedBlocks.containsKey(accessTime.getKey())) {
-        if (blockEvictable(accessTime.getKey(), pinList, isLastTier)) {
-          oldestTime = accessTime.getValue();
-          blockId = accessTime.getKey();
+    HashMultimap<Long, Long> lockedBlocks = curDir.getUsersPerLockedBlock();
+
+    synchronized (curDir) {
+      synchronized (lockedBlocks) {
+        for (Entry<Long, Long> accessTime : accessTimes.entrySet()) {
+          if (toEvictBlockIds.contains(accessTime.getKey())) {
+            continue;
+          }
+          if (accessTime.getValue() < oldestTime && !lockedBlocks.containsKey(accessTime.getKey())) {
+            if (blockEvictable(accessTime.getKey(), pinList)) {
+              oldestTime = accessTime.getValue();
+              blockId = accessTime.getKey();
+            }
+          }
         }
       }
     }
