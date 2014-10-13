@@ -28,6 +28,7 @@ import tachyon.conf.WorkerConf;
 import tachyon.master.LocalTachyonCluster;
 import tachyon.thrift.FileAlreadyExistException;
 import tachyon.thrift.InvalidPathException;
+import tachyon.thrift.WorkerFileInfo;
 import tachyon.util.CommonUtils;
 
 /**
@@ -190,9 +191,10 @@ public class TachyonFileTest {
       TachyonFile file = mTfs.getFile(fileId);
       Assert.assertEquals(1, file.getNumberOfBlocks());
       long bid = mTfs.getBlockIdBasedOnOffset(file.FID, 0);
-      String localFname = mTfs.getLocalFilename(bid);
-      Assert.assertNotNull("Block not found on local ramdisk", localFname);
-      RandomAccessFile lfile = new RandomAccessFile(localFname, "r");
+      WorkerFileInfo fileInfo = mTfs.getBlockFileInfo(bid);
+      String filePath = fileInfo.getFilePath();
+      Assert.assertNotNull("Block not found on local ramdisk", filePath);
+      RandomAccessFile lfile = new RandomAccessFile(filePath, "r");
       byte[] buf = new byte[k];
       lfile.read(buf, 0, k);
 

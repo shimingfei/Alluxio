@@ -15,9 +15,7 @@
 package tachyon.worker;
 
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
 
 import org.apache.log4j.Logger;
@@ -25,9 +23,8 @@ import org.apache.log4j.Logger;
 import com.google.common.base.Preconditions;
 
 import tachyon.Constants;
+import tachyon.StorageId;
 import tachyon.client.TachyonByteBuffer;
-import tachyon.conf.WorkerConf;
-import tachyon.util.CommonUtils;
 
 /**
  * The message type used to send data request and response for remote data.
@@ -56,8 +53,8 @@ public class DataServerMessage {
    *          The id of the block
    * @return The created block request message
    */
-  public static DataServerMessage createBlockRequestMessage(long blockId) {
-    return createBlockRequestMessage(blockId, 0, -1);
+  public static DataServerMessage createBlockRequestMessage(long blockId, long storageId) {
+    return createBlockRequestMessage(blockId, storageId, 0, -1);
   }
 
   /**
@@ -74,11 +71,13 @@ public class DataServerMessage {
    *          the block's end.
    * @return The created block request message
    */
-  public static DataServerMessage createBlockRequestMessage(long blockId, long offset, long len) {
+  public static DataServerMessage createBlockRequestMessage(long blockId, long storageId,
+      long offset, long len) {
     DataServerMessage ret = new DataServerMessage(true, DATA_SERVER_REQUEST_MESSAGE);
 
     ret.mHeader = ByteBuffer.allocate(HEADER_LENGTH);
     ret.mBlockId = blockId;
+    ret.mStorageId = storageId;
     ret.mOffset = offset;
     ret.mLength = len;
     ret.generateHeader();
@@ -96,10 +95,13 @@ public class DataServerMessage {
    *          If true the message is to send the data, otherwise it's used to receive data.
    * @param blockId
    *          The id of the block
+   * @param blockData
+   *          The data of the block
    * @return The created block response message
    */
-  public static DataServerMessage createBlockResponseMessage(boolean toSend, long blockId) {
-    return createBlockResponseMessage(toSend, blockId, 0, -1);
+  public static DataServerMessage createBlockResponseMessage(boolean toSend, long blockId,
+      long storageId, ByteBuffer blockData) {
+    return createBlockResponseMessage(toSend, blockId, storageId, 0, -1, blockData);
   }
 
   /**
@@ -120,11 +122,12 @@ public class DataServerMessage {
    * @return The created block response message
    */
   public static DataServerMessage createBlockResponseMessage(boolean toSend, long blockId,
-      long offset, long len) {
+      long storageId, long offset, long len, ByteBuffer blockData) {
     DataServerMessage ret = new DataServerMessage(toSend, DATA_SERVER_RESPONSE_MESSAGE);
 
     if (toSend) {
       ret.mBlockId = blockId;
+      ret.mStorageId = storageId;
 
       try {
         if (offset < 0) {
@@ -134,43 +137,17 @@ public class DataServerMessage {
           throw new IOException("Length can not be negative except -1: " + len);
         }
 
-        String filePath = CommonUtils.concat(WorkerConf.get().DATA_FOLDER, blockId);
-        ret.LOG.info("Try to response remote request by reading from " + filePath);
-        RandomAccessFile file = new RandomAccessFile(filePath, "r");
-
-        long fileLength = file.length();
-        String error = null;
-        if (offset > fileLength) {
-          error = String.format("Offset(%d) is larger than file length(%d)", offset, fileLength);
-        }
-        if (error == null && len != -1 && offset + len > fileLength) {
-          error =
-              String.format("Offset(%d) plus length(%d) is larger than file length(%d)", offset,
-                  len, fileLength);
-        }
-        if (error != null) {
-          file.close();
-          throw new IOException(error);
-        }
-
-        if (len == -1) {
-          len = fileLength - offset;
-        }
-
         ret.mHeader = ByteBuffer.allocate(HEADER_LENGTH);
         ret.mOffset = offset;
         ret.mLength = len;
-        FileChannel channel = file.getChannel();
         ret.mTachyonData = null;
-        ret.mData = channel.map(FileChannel.MapMode.READ_ONLY, offset, len);
-        channel.close();
-        file.close();
+        ret.mData = blockData;
         ret.mIsMessageReady = true;
         ret.generateHeader();
-        ret.LOG.info("Response remote request by reading from " + filePath + " preparation done.");
       } catch (Exception e) {
         // TODO This is a trick for now. The data may have been removed before remote retrieving.
         ret.mBlockId = -ret.mBlockId;
+        ret.mStorageId = StorageId.unknownValue();
         ret.mLength = 0;
         ret.mHeader = ByteBuffer.allocate(HEADER_LENGTH);
         ret.mData = ByteBuffer.allocate(0);
@@ -192,8 +169,10 @@ public class DataServerMessage {
   private boolean mIsMessageReady;
   private ByteBuffer mHeader;
 
-  private static final int HEADER_LENGTH = 26;
+  private static final int HEADER_LENGTH = 34;
   private long mBlockId;
+
+  private long mStorageId;
 
   private long mOffset;
 
@@ -257,6 +236,7 @@ public class DataServerMessage {
     mHeader.clear();
     mHeader.putShort(MSG_TYPE);
     mHeader.putLong(mBlockId);
+    mHeader.putLong(mStorageId);
     mHeader.putLong(mOffset);
     mHeader.putLong(mLength);
     mHeader.flip();
@@ -317,6 +297,16 @@ public class DataServerMessage {
   }
 
   /**
+   * Get the storage id of the block. Make sure the message is ready before calling this method.
+   * 
+   * @return The id of the block
+   */
+  public long getStorageId() {
+    checkReady();
+    return mStorageId;
+  }
+
+  /**
    * @return true if the message is ready, false otherwise
    */
   public boolean isMessageReady() {
@@ -353,6 +343,7 @@ public class DataServerMessage {
         short msgType = mHeader.getShort();
         assert (MSG_TYPE == msgType);
         mBlockId = mHeader.getLong();
+        mStorageId = mHeader.getLong();
         mOffset = mHeader.getLong();
         mLength = mHeader.getLong();
         // TODO make this better to truncate the file.
